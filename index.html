@@ -584,14 +584,32 @@ function buildDbFromSheet(rows){
     else newDb[medium].history.push(entry);
   });
 
-  // お掃除オプション単価をfixedOptsに反映
+  // 固定オプション単価をスプレッドシートから反映（最初の行から取得）
   const anyRow=rows[0];
   if(anyRow){
-    const osoujiPrice=Number(anyRow['お掃除オプション単価']||6000);
     const opts=loadFixedOpts();
-    const osoujiOpt=opts.find(o=>o.isOsoujiOpt);
-    if(osoujiOpt) osoujiOpt.price=osoujiPrice;
-    saveFixedOptsDB(opts);
+    const mapping = {
+      'nano':    'ナノソルコート単価',
+      'gaiki':   '室外機洗浄単価',
+      'dorain':  'ドレンホース単価',
+      'bouchuu': '防虫キャップ単価',
+      'set2':    '2点セット単価',
+      'set3':    '3点セット単価',
+    };
+    let changed = false;
+    opts.forEach(opt=>{
+      const col = mapping[opt.id];
+      if(col && anyRow[col] !== undefined && anyRow[col] !== ''){
+        opt.price = Number(anyRow[col]);
+        changed = true;
+      }
+      // お掃除オプション単価
+      if(opt.isOsoujiOpt && anyRow['お掃除オプション単価'] !== undefined){
+        opt.price = Number(anyRow['お掃除オプション単価']||6000);
+        changed = true;
+      }
+    });
+    if(changed) saveFixedOptsDB(opts);
   }
 
   db=Object.keys(newDb).length>0?newDb:loadPriceDB();
@@ -638,7 +656,7 @@ const DEFAULT_FIXED_OPTIONS=[
   // お掃除機能付きは自社・くらし・おうち用オプション（先頭固定）
   {id:'osouji_opt', name:'お掃除機能付きエアコン', price:6000, popular:false, isOsoujiOpt:true},
   {id:'nano',    name:'ナノソルコート',                            price:3000, popular:false},
-  {id:'gaiki',   name:'室外機洗浄',                                price:4000, popular:false},
+  {id:'gaiki',   name:'室外機洗浄',                                price:5000, popular:false},
   {id:'dorain',  name:'ドレンホース洗浄',                          price:2500, popular:false},
   {id:'bouchuu', name:'防虫キャップ',                              price:1000, popular:false},
   {id:'set2',    name:'2点セット（ナノソルコート＋室外機）',         price:5000, popular:false},
