@@ -269,10 +269,11 @@
     <div class="card">
       <div class="card-title">媒体・受注先</div>
       <select id="platform" onchange="onPlatformChange()">
-        <option value="jisha">自社（直接）</option>
         <option value="yourmeister">ユアマイスター</option>
         <option value="kurashi">くらしのマーケット</option>
         <option value="ouchi">おうちにプロ</option>
+        <option value="jisha">自社（直接・HPやLINE等）</option>
+        <option value="chirashi">チラシ</option>
         <option value="other">その他（直接入力）</option>
       </select>
     </div>
@@ -420,39 +421,7 @@
 
   <!-- ===== 管理画面 ===== -->
   <div id="adminSection" class="admin-section">
-    <div class="notice-box"><strong>🔐 管理者専用画面</strong><br>料金・各種設定の変更はここから行えます。</div>
-
-    <!-- 店舗名設定 -->
-    <div class="admin-card">
-      <div class="admin-title">🏪 店舗名・表示設定</div>
-      <div class="setting-row">
-        <div class="setting-label">店舗名（ヘッダーに表示）</div>
-        <input type="text" class="setting-input" id="storeNameInput" placeholder="例：クリーニングBASE" maxlength="40">
-      </div>
-      <button class="save-btn" onclick="saveStoreName()">💾 店舗名を保存</button>
-      <div class="saved-msg" id="savedMsgStore">✅ 保存しました！</div>
-    </div>
-
-    <!-- 媒体別料金 -->
-    <div class="admin-card">
-      <div class="admin-title">📋 媒体別料金設定</div>
-      <div class="platform-tabs" id="platformTabs"></div>
-      <div id="priceEditor"></div>
-      <button class="save-btn" onclick="savePrices()">💾 保存する</button>
-      <div class="saved-msg" id="savedMsg">✅ 保存しました！</div>
-    </div>
-
-    <!-- 価格改定履歴 -->
-    <div class="admin-card">
-      <div class="admin-title">📅 価格改定履歴</div>
-      <p class="admin-section-sub">「有効開始日」を登録すると、その日以降の注文に自動で新料金が適用されます。</p>
-      <div class="history-list" id="historyList"></div>
-      <div class="add-history-row">
-        <input type="date" class="add-date-input" id="newHistoryDate">
-        <button class="add-history-btn" onclick="addHistoryEntry()">＋ 追加</button>
-      </div>
-      <div class="saved-msg" id="savedMsgHist">✅ 追加しました！</div>
-    </div>
+    <div class="notice-box"><strong>🔐 管理者専用画面</strong><br>オプション料金・パスワードの変更はここから行えます。</div>
 
     <!-- 固定オプション -->
     <div class="admin-card">
@@ -559,7 +528,7 @@ function storeLogin(){
         document.getElementById('headerStoreBadge').style.display='block';
         document.getElementById('headerStoreLabel').textContent=currentStoreName;
         document.getElementById('headerStore').textContent='';
-        applyStoreName();
+        document.title=`${currentStoreName} 料金計算ツール`;
         renderOptions();
         calc();
       } else {
@@ -594,7 +563,7 @@ function buildDbFromSheet(rows){
     if(!medium || !PLATFORMS[medium]) return;
 
     const prices = {};
-    if(medium==='yourmeister'||medium==='jisha'){
+    if(medium==='yourmeister'||medium==='jisha'||medium==='chirashi'){
       for(let i=1;i<=10;i++) prices[`normal_${i}`]=Number(row[`通常${i}台`]||0);
       for(let i=1;i<=4;i++)  prices[`osouji_${i}`]=Number(row[`お掃除${i}台`]||0);
       prices['osouji_5plus']=Number(row['お掃除単価5plus']||0);
@@ -630,11 +599,12 @@ function buildDbFromSheet(rows){
 
 
 const PLATFORMS = {
-  jisha:       { name:'自社（直接）',      type:'table' },
-  yourmeister: { name:'ユアマイスター',    type:'table' },
-  kurashi:     { name:'くらしのマーケット', type:'unit'  },
-  ouchi:       { name:'おうちにプロ',      type:'unit'  },
-  other:       { name:'その他',           type:'free'  },
+  yourmeister: { name:'ユアマイスター',            type:'table' },
+  kurashi:     { name:'くらしのマーケット',          type:'unit'  },
+  ouchi:       { name:'おうちにプロ',               type:'unit'  },
+  jisha:       { name:'自社（直接・HPやLINE等）',   type:'table' },
+  chirashi:    { name:'チラシ',                    type:'table' },
+  other:       { name:'その他',                   type:'free'  },
 };
 
 // デフォルト料金
@@ -659,6 +629,7 @@ const jsO=[13000,25000,37000,48000,59000,70000,81000,92000,103000,114000];
 const DEFAULT_PRICES = {
   jisha:       { history:[{date:'2020-01-01', prices:makeTableDefaults(jsN,jsO)}] },
   yourmeister: { history:[{date:'2020-01-01', prices:makeTableDefaults(ymN,ymO)}] },
+  chirashi:    { history:[{date:'2020-01-01', prices:makeTableDefaults(ymN,ymO)}] },
   kurashi:     { history:[{date:'2020-01-01', prices:makeUnitDefaults(5980,11960,17940,23920,5500,6000,12000,18000,24000,6000)}] },
   ouchi:       { history:[{date:'2020-01-01', prices:makeUnitDefaults(5980,11960,17940,23920,5500,6000,12000,18000,24000,6000)}] },
 };
@@ -713,19 +684,6 @@ function onDateChange(){
   updateHints();calc();
 }
 
-// ===== 店舗名 =====
-function applyStoreName(){
-  const n=loadStoreName();
-  const el=document.getElementById('headerStore');
-  el.textContent=n?n:'';
-  el.style.display=n?'block':'none';
-  document.title=n?`${n} 料金計算ツール`:'料金計算ツール';
-}
-function saveStoreName(){
-  const v=document.getElementById('storeNameInput').value.trim();
-  saveStoreNameDB(v);applyStoreName();showSaved('savedMsgStore');
-}
-
 // ===== エアコン台数 =====
 function changeAC(type,delta){
   if(type==='normal'){normalCount=Math.max(0,Math.min(10,normalCount+delta));}
@@ -759,8 +717,8 @@ function updateHints(){
   const isYM=platform==='yourmeister';
   const dateStr=getSelectedDate();
 
-  if(isYM){
-    // YM：通常＋お掃除の2カウンター
+  if(isYM||platform==='chirashi'){
+    // YM・チラシ：通常＋お掃除の2カウンター
     const p=getPricesForDate(platform,dateStr);
     const nh=document.getElementById('normalHintYM'),oh=document.getElementById('osoujiHintYM');
     if(nh){if(normalCount>0){nh.style.display='block';nh.textContent=`${normalCount}台 → ¥${(p[`normal_${normalCount}`]??0).toLocaleString()}`;}else nh.style.display='none';}
@@ -788,14 +746,15 @@ function onPlatformChange(){
   const platform=document.getElementById('platform').value;
   const ptype=PLATFORMS[platform]?.type;
   const isYM=platform==='yourmeister';
+  const isChirashi=platform==='chirashi';
+  const needsDualCounter=isYM||isChirashi; // 通常＋お掃除2カウンター
   // カウンター表示切替
-  document.getElementById('counterCard').style.display   = (ptype==='table'&&!isYM) ? 'block' : 'none';
-  document.getElementById('counterCardYM').style.display = isYM                     ? 'block' : 'none';
-  document.getElementById('unitCard').style.display      = ptype==='unit'            ? 'block' : 'none';
-  document.getElementById('freeCard').style.display      = ptype==='free'            ? 'block' : 'none';
-  document.getElementById('ymCard').style.display        = isYM                     ? 'block' : 'none';
-  // YMでない場合はosoujiCountをリセット（YMのカウンターのみで使う）
-  if(!isYM){ osoujiCount=0; syncCounterDisplays(); }
+  document.getElementById('counterCard').style.display   = (ptype==='table'&&!needsDualCounter) ? 'block' : 'none';
+  document.getElementById('counterCardYM').style.display = needsDualCounter                     ? 'block' : 'none';
+  document.getElementById('unitCard').style.display      = ptype==='unit'                       ? 'block' : 'none';
+  document.getElementById('freeCard').style.display      = ptype==='free'                       ? 'block' : 'none';
+  document.getElementById('ymCard').style.display        = isYM                                 ? 'block' : 'none';
+  if(!needsDualCounter){ osoujiCount=0; syncCounterDisplays(); }
   if(!isYM){document.getElementById('ymCoupon').value='flat:0';document.getElementById('ymKobarai').value='0';document.getElementById('ymHosho').value='0';}
   updateHints();calc();
 }
@@ -815,8 +774,9 @@ function toggleOpt(id,isCustom){
 function renderOptions(){
   const platform=document.getElementById('platform').value;
   const isYM=platform==='yourmeister';
-  // 固定オプション：YMのときはosouji_optを非表示
-  const fixedOpts=loadFixedOpts().filter(opt=> isYM ? !opt.isOsoujiOpt : true);
+  const hideOsoujiOpt=isYM||platform==='chirashi';
+  // 固定オプション：YM・チラシのときはosouji_optを非表示
+  const fixedOpts=loadFixedOpts().filter(opt=> hideOsoujiOpt ? !opt.isOsoujiOpt : true);
   const list=document.getElementById('optionList');
   list.innerHTML='';
   fixedOpts.forEach(opt=>{
@@ -873,8 +833,8 @@ function calc(){
   const customOpts=loadCustomOpts().filter(o=>o.name&&o.name.trim()&&o.price>0);
   let breakdown=[],acAmt=0,optAmt=0;
 
-  if(isYM){
-    // YM：通常＋お掃除の台数別合計
+  if(isYM||platform==='chirashi'){
+    // YM・チラシ：通常＋お掃除の台数別合計
     const p=getPricesForDate(platform,dateStr);
     if(normalCount>0){const a=p[`normal_${normalCount}`]??0;breakdown.push({label:`通常エアコン ${normalCount}台`,amount:a});acAmt+=a;}
     if(osoujiCount>0){const a=p[`osouji_${osoujiCount}`]??0;breakdown.push({label:`お掃除機能付き ${osoujiCount}台`,amount:a});acAmt+=a;}
@@ -893,8 +853,9 @@ function calc(){
     if(fo>0){breakdown.push({label:'お掃除機能付き',amount:fo});acAmt+=fo;}
   }
 
-  // 固定オプション（YMはosouji_optを除外済み）
-  fixedOpts.filter(opt=> isYM ? !opt.isOsoujiOpt : true).forEach(opt=>{
+  // 固定オプション（YM・チラシはosouji_optを除外）
+  const hideOsouji=isYM||platform==='chirashi';
+  fixedOpts.filter(opt=> hideOsouji ? !opt.isOsoujiOpt : true).forEach(opt=>{
     const qty=optQty[opt.id]||0;
     if(qty>0){const a=opt.price*qty;breakdown.push({label:`${opt.name} × ${qty}`,amount:a});optAmt+=a;}
   });
@@ -986,57 +947,11 @@ function changePassword(){
 
 // ===== 管理画面描画 =====
 function renderAdminPanel(){
-  // 店舗名フィールド
-  document.getElementById('storeNameInput').value=loadStoreName();
-
-  // 媒体タブ（other除外）
-  const adminPlatforms=Object.entries(PLATFORMS).filter(([k])=>k!=='other');
-  const tabsEl=document.getElementById('platformTabs');
-  tabsEl.innerHTML='';
-  adminPlatforms.forEach(([key,info])=>{
-    const btn=document.createElement('button');
-    btn.className='platform-tab'+(key===currentAdminPlatform?' active':'');
-    btn.textContent=info.name;
-    btn.onclick=()=>{currentAdminPlatform=key;renderAdminPanel();};
-    tabsEl.appendChild(btn);
-  });
-
-  const ptype=PLATFORMS[currentAdminPlatform]?.type;
-  const isYM=currentAdminPlatform==='yourmeister';
-  const lp=getPricesForDate(currentAdminPlatform,getTodayStr());
-  let html='';
-
-  if(ptype==='table'){
-    if(isYM)html+='<div class="ym-notice-admin">⚠️ クーポン適用後の金額に15%のサービス料が加算されます</div>';
-    html+=`<div style="overflow-x:auto;"><table class="price-table">
-      <tr><th style="width:40px;">台数</th><th>通常タイプ（円）</th><th>お掃除機能付き（円）</th></tr>`;
-    for(let i=1;i<=10;i++){
-      html+=`<tr><td>${i}台</td>
-        <td><input class="price-input" type="number" id="pn_${i}" value="${lp[`normal_${i}`]??''}" placeholder="-"></td>
-        <td><input class="price-input" type="number" id="po_${i}" value="${lp[`osouji_${i}`]??''}" placeholder="-"></td></tr>`;
-    }
-    html+='</table></div>';
-  } else if(ptype==='unit'){
-    html+=`<div style="overflow-x:auto;"><table class="price-table">
-      <tr><th style="width:60px;">台数</th><th>通常タイプ（円）</th><th>お掃除機能付き（円）</th></tr>`;
-    for(let i=1;i<=4;i++){
-      html+=`<tr><td>${i}台</td>
-        <td><input class="price-input" type="number" id="pun_${i}" value="${lp[`normal_${i}`]??''}" placeholder="-"></td>
-        <td><input class="price-input" type="number" id="puo_${i}" value="${lp[`osouji_${i}`]??''}" placeholder="-"></td></tr>`;
-    }
-    html+=`<tr style="background:#fdf2f8;">
-      <td>5台以降<br><span style="font-size:10px;color:#ec4899;">（1台あたり）</span></td>
-      <td><input class="price-input" type="number" id="pun_5plus" value="${lp.normal_5plus??''}" placeholder="-"></td>
-      <td><input class="price-input" type="number" id="puo_5plus" value="${lp.osouji_5plus??''}" placeholder="-"></td></tr>`;
-    html+='</table></div>';
-  }
-  document.getElementById('priceEditor').innerHTML=html;
-
   // 固定オプション
   const fixedOpts=loadFixedOpts();
   document.getElementById('optionEditor').innerHTML=fixedOpts.map(opt=>`
     <div class="opt-admin-row">
-      <div class="opt-admin-label">${opt.name}${opt.isOsoujiOpt?'<br><span style="font-size:10px;color:#ec4899;">※自社・くらし・おうちのオプション欄に表示（YMは非表示）</span>':''}</div>
+      <div class="opt-admin-label">${opt.name}${opt.isOsoujiOpt?'<br><span style="font-size:10px;color:#ec4899;">※自社・くらし・おうちのオプション欄に表示</span>':''}</div>
       <input class="opt-admin-input" type="number" id="fopt_${opt.id}" value="${opt.price}">
       <span style="font-size:12px;color:#6b7280;">円</span>
     </div>`).join('');
@@ -1050,79 +965,6 @@ function renderAdminPanel(){
       <input class="custom-opt-price" type="number" id="cprice_${i}" value="${opt.price||''}" placeholder="0">
       <span class="custom-opt-suffix">円</span>
     </div>`).join('');
-
-  // 価格履歴
-  renderHistoryList();
-}
-
-function renderHistoryList(){
-  const pdb=db[currentAdminPlatform];
-  if(!pdb||!pdb.history){document.getElementById('historyList').innerHTML='';return;}
-  const sorted=[...pdb.history].sort((a,b)=>b.date.localeCompare(a.date));
-  document.getElementById('historyList').innerHTML=sorted.map(h=>{
-    const[y,m,d]=h.date.split('-');
-    return `<div class="history-item">
-      <div class="history-date">${y}/${m}/${d}</div>
-      <div class="history-desc">この日から新料金が適用</div>
-      <button class="history-del" onclick="deleteHistory('${h.date}')">✕</button>
-    </div>`;
-  }).join('');
-}
-
-function addHistoryEntry(){
-  const d=document.getElementById('newHistoryDate').value;
-  if(!d){alert('日付を入力してください');return;}
-  if(!db[currentAdminPlatform])db[currentAdminPlatform]={history:[]};
-  if(!db[currentAdminPlatform].history)db[currentAdminPlatform].history=[];
-  if(db[currentAdminPlatform].history.find(h=>h.date===d)){alert('同じ日付がすでに存在します');return;}
-  const cp=JSON.parse(JSON.stringify(getPricesForDate(currentAdminPlatform,d)));
-  db[currentAdminPlatform].history.push({date:d,prices:cp});
-  savePriceDB(db);
-  document.getElementById('newHistoryDate').value='';
-  showSaved('savedMsgHist');renderAdminPanel();
-}
-
-function deleteHistory(dateStr){
-  if(!confirm(`${dateStr} の価格エントリを削除しますか？`))return;
-  const h=db[currentAdminPlatform]?.history;
-  if(!h)return;
-  const idx=h.findIndex(x=>x.date===dateStr);
-  if(idx>=0)h.splice(idx,1);
-  if(h.length===0){
-    const def=DEFAULT_PRICES[currentAdminPlatform]?.history[0]?.prices||{};
-    h.push({date:'2020-01-01',prices:JSON.parse(JSON.stringify(def))});
-  }
-  savePriceDB(db);renderHistoryList();
-}
-
-function savePrices(){
-  const ptype=PLATFORMS[currentAdminPlatform]?.type;
-  const dateStr=getTodayStr();
-  if(!db[currentAdminPlatform])db[currentAdminPlatform]={history:[]};
-  if(!db[currentAdminPlatform].history)db[currentAdminPlatform].history=[];
-  let entry=db[currentAdminPlatform].history.find(h=>h.date===dateStr);
-  if(!entry){
-    const cp=JSON.parse(JSON.stringify(getPricesForDate(currentAdminPlatform,dateStr)));
-    entry={date:dateStr,prices:cp};
-    db[currentAdminPlatform].history.push(entry);
-  }
-  if(ptype==='table'){
-    for(let i=1;i<=10;i++){
-      const ne=document.getElementById(`pn_${i}`),oe=document.getElementById(`po_${i}`);
-      if(ne)entry.prices[`normal_${i}`]=parseInt(ne.value)||0;
-      if(oe)entry.prices[`osouji_${i}`]=parseInt(oe.value)||0;
-    }
-  } else if(ptype==='unit'){
-    for(let i=1;i<=4;i++){
-      const ne=document.getElementById(`pun_${i}`),oe=document.getElementById(`puo_${i}`);
-      if(ne)entry.prices[`normal_${i}`]=parseInt(ne.value)||0;
-      if(oe)entry.prices[`osouji_${i}`]=parseInt(oe.value)||0;
-    }
-    const n5=document.getElementById('pun_5plus'),o5=document.getElementById('puo_5plus');
-    if(n5)entry.prices.normal_5plus=parseInt(n5.value)||0;
-    if(o5)entry.prices.osouji_5plus=parseInt(o5.value)||0;
-  }
-  savePriceDB(db);showSaved('savedMsg');renderHistoryList();
 }
 
 function saveFixedOptions(){
@@ -1145,12 +987,13 @@ function saveCustomOptions(){
 function showSaved(id){const el=document.getElementById(id);el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2000);}
 
 // ===== 初期化 =====
-// 起動時に店舗一覧を取得
 loadStoreList();
-
-applyStoreName();
 document.getElementById('orderDate').value=getTodayStr();
 onDateChange();
+// 初期媒体がユアマイスターなので2カウンター表示に
+document.getElementById('counterCard').style.display='none';
+document.getElementById('counterCardYM').style.display='block';
+document.getElementById('ymCard').style.display='block';
 renderOptions();
 calc();
 </script>
