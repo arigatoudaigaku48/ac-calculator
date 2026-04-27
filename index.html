@@ -583,7 +583,7 @@ function filterPlatformsByData(rows){
   onPlatformChange();
 }
 
-
+function buildDbFromSheet(rows){
   const newDb = {};
   rows.forEach(row=>{
     const medium = String(row['媒体']||'').trim();
